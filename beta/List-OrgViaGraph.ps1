@@ -16,6 +16,7 @@ $me = (Get-MgContext).Account
 
 # Connect as the current user (no admin required)
 # Connect-ExchangeOnline -ShowBanner:$false # This MAY be disabled on some tenants
+start Chrome.exe https://microsoft.com/devicelogin
 Connect-ExchangeOnline -ShowBanner:$false -device # Use -device login
 
 # Script-scoped results container

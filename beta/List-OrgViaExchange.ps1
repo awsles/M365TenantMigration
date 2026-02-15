@@ -1,3 +1,5 @@
+# List-OrgViaExchange.ps1
+###
 <#
 .SYNOPSIS
 Enumerates Exchange users following the organizational hierarchy starting from a given user.
@@ -20,7 +22,7 @@ The starting user UPN (e.g., user@domain.com)
 
 param (
     [Parameter(Mandatory = $true)]
-    [string]$RootUser
+    [string]$RootUser   # Root user to start enumeration
 )
 
 # Connect as the current user (no admin required)

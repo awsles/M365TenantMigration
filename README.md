@@ -11,12 +11,28 @@ Import-Module .\M365TenantMigration
 Export-M365TenantConfiguration -OutputPath ".\TenantExport"
 ````
 
+Be sure to review output for any errors or warnings to ensure completeness of the exported data. Note that the following permissions are required:
+* Directory.Read.All
+* Policy.Read.All
+* RoleManagement.Read.Directory
+* AuditLog.Read.All
+* IdentityRiskyUser.Read.All
+* Application.Read.All
+
 ### Import Tenant Configuration
 
 ```powershell
 Import-Module .\M365TenantMigration
 Import-M365TenantConfiguration -ImportPath ".\TenantExport"
 ```
+
+Note that `Import-M365TenantConfiguration` will only create new objects. If an object already exists, it will NOT be updated or over-written. This preserves idempotency. Note that the following permissions are required:
+
+* Directory.ReadWrite.All
+* Policy.ReadWrite.ConditionalAccess
+* RoleManagement.ReadWrite.Directory
+* Application.ReadWrite.All
+* IdentityRiskyUser.ReadWrite.All
 
 ### Notes
 
@@ -28,28 +44,8 @@ Import-M365TenantConfiguration -ImportPath ".\TenantExport"
 
 ---
 
-## Required Permissions
-
-### Export-M365TenantConfiguration
-
-* Directory.Read.All
-* Policy.Read.All
-* RoleManagement.Read.Directory
-* AuditLog.Read.All
-* IdentityRiskyUser.Read.All
-* Application.Read.All
-
-### Import-M365TenantConfiguration
-
-* Directory.ReadWrite.All
-* Policy.ReadWrite.ConditionalAccess
-* RoleManagement.ReadWrite.Directory
-* Application.ReadWrite.All
-* IdentityRiskyUser.ReadWrite.All
-
----
-
 ## Exported / Imported Tenant Settings by Category
+Below are the details of what is exported and imported by these scripts.
 
 ### Organization Profile
 

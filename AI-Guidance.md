@@ -10,7 +10,7 @@ Below is a **production-ready PowerShell script** using the **Microsoft Graph Po
 * Produces structured output suitable for later re-import
 
 
-# PowerShell – Full Tenant Configuration Export (Entra ID P2)
+## PowerShell – Full Tenant Configuration Export (Entra ID P2)
 
 ```powershell
 # ============================================================
@@ -198,7 +198,7 @@ Disconnect-MgGraph
 
 ---
 
-# What This Script Produces
+### What This Script Produces
 
 ```
 EntraTenantExport_YYYYMMDD_HHMMSS/
@@ -242,7 +242,7 @@ Each file contains:
 * Secrets and credentials are intentionally not exported
 
 ---
-# PowerShell – Entra Tenant Configuration Import Scaffold
+## PowerShell – Entra Tenant Configuration Import Scaffold
 
 Below is a **companion import scaffold script** designed to consume the JSON files produced by the export script and prepare them for controlled re-hydration into a separate Microsoft 365 / Entra tenant. This is intentionally a **safe scaffold**:
 
@@ -499,7 +499,7 @@ Strips:
 
 ---
 
-# Important Design Considerations for Production Hardening
+## Important Design Considerations for Production Hardening
 
 Before turning this into a full migration engine, you’ll need:
 

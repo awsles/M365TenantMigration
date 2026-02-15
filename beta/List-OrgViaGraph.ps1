@@ -1,16 +1,22 @@
+# List-OrgViaGraph.ps1
+###
+
 param (
-#    [Parameter(Mandatory)]
-    [string]$RootUserUPN = 'USER@company.com'
+    [Parameter(Mandatory)]
+    [string]$RootUserUPN    # Starting root to enumerate users
 )
 
 Import-Module Microsoft.Graph.Users
 Import-Module ExchangeOnlineManagement
 
+
 # Connect to Microsoft Graph using device code flow to avoid broker issues
 Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication
+$me = (Get-MgContext).Account
 
-# Connect to Exchange Online (no admin privileges required for mailbox photos)
-Connect-ExchangeOnline -device
+# Connect as the current user (no admin required)
+# Connect-ExchangeOnline -ShowBanner:$false # This MAY be disabled on some tenants
+Connect-ExchangeOnline -ShowBanner:$false -device # Use -device login
 
 # Script-scoped results container
 $script:results = @()
@@ -131,8 +137,11 @@ function Get-OrgTree {
 
     # Get user details
     $user = Get-MgUser -UserId $UserId `
-        -Property DisplayName,UserPrincipalName,JobTitle,Department,OfficeLocation,GivenName,EmployeeType, AboutMe,EmployeeHireDate,AccountEnabled `
+        -Property DisplayName,UserPrincipalName,JobTitle,Department,OfficeLocation,GivenName,EmployeeType,AboutMe,EmployeeHireDate,AccountEnabled, Id, Extensions,OnPremisesExtensionAttributes `
         -ErrorAction Stop
+	
+	# Get extended properties (employee ID, etc.)
+
 
     # Retrieve the user's photo (Graph first)
     $photoPath = Get-GraphUserPhoto -UserId $UserId
@@ -141,6 +150,31 @@ function Get-OrgTree {
     if ($null -eq $photoPath) {
         $photoPath = Get-ExchangeUserPhoto -UserPrincipalName $user.UserPrincipalName
     }
+
+	# Retrieve non-null extensions (these vary by company)
+	$extensions = @{}
+	$null = $user.OnPremisesExtensionAttributes.PSObject.Properties |
+		Where-Object { $_.Name -like 'Extension*' -and $_.Value } |
+		ForEach-Object { $extensions[$_.Name] = $_.Value }
+	
+	# Get EXCHANGE info for this user
+	try {
+		# Get mailbox information
+        $EXuser = Get-User -Identity $User.UserPrincipalName -ErrorAction Stop
+		# Get SMTP email addresses
+		$SMTPDetails = Get-Mailbox $User.UserPrincipalName |
+			Select-Object -ExpandProperty EmailAddresses |
+			Where-Object { $_ -like "smtp:*" } | ForEach-Object { $_.Substring(5) }
+		# Get distribution groups that the user is a member of... (SLOW)
+		# $DL = Get-Recipient -RecipientTypeDetails MailUniversalDistributionGroup, MailUniversalSecurityGroup, MailNonUniversalGroup |
+		#		Where-Object { (Get-DistributionGroupMember $_.Identity | Where-Object {$_.PrimarySmtpAddress -eq $User.UserPrincipalName}) }
+    }
+    catch {
+        Write-Warning "Error accessing Exchange user: $($User.UserPrincipalName)"
+		$EXuser = $null
+		$SMTPDetails = $null
+    }
+
 
     # Add to results
     $script:results += [PSCustomObject]@{
@@ -155,16 +189,20 @@ function Get-OrgTree {
         AboutMe				= $user.AboutMe
         EmployeeHireDate	= $user.EmployeeHireDate
         AccountEnabled		= $user.AccountEnabled
-        HVid				= $user.Id
         Manager     		= $ManagerUPN
         PhotoPath           = $photoPath
-    }
+		ObjectId			= $user.Id
+ 		ExtensionAttributes = $extensions | ConvertTo-Json
+		EX_SamAccountName	= $EXUser.SamAccountName
+		EX_OrgUnitRoot		= $EXUser.OrganizationalUnitRoot
+		EX_SMTPAddresses	= $SMTPDetails
+   }
 
     # Get direct reports
     $directReports = Get-MgUserDirectReport -UserId $UserId -All
 
     foreach ($dr in $directReports) {
-        write-host -ForegroundColor Yellow $dr.additionalproperties['displayName'] - $dr.id - $dr.AdditionalProperties.mail
+        # write-host -ForegroundColor Yellow $dr.additionalproperties['displayName'] - $dr.id - $dr.AdditionalProperties.mail   # DEBUG
 
         # Graph returns directoryObjects — filter to users only
         # if ($dr.'@odata.type' -eq '#microsoft.graph.user') {

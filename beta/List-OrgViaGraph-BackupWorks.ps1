@@ -1,6 +1,6 @@
 param (
 #    [Parameter(Mandatory)]
-    [string]$RootUserUPN = 'les.waters@hitachivantara.com'
+    [string]$RootUserUPN = 'USER@company.com'
 )
 
 Import-Module Microsoft.Graph.Users

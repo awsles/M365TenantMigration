@@ -49,8 +49,8 @@ function Export-M365TenantConfiguration {
     )
 
     # Connect to Graph
-    Connect-MgGraph -Scopes $Scopes
-    Select-MgProfile -Name "beta"
+#    Connect-MgGraph # -Scopes $Scopes
+#    Select-MgProfile -Name "beta"
 
     $OutputRoot = Resolve-Path $OutputPath
     if (!(Test-Path $OutputRoot)) { New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null }

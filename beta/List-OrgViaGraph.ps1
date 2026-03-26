@@ -1,9 +1,10 @@
 # List-OrgViaGraph.ps1
+#
+#  $output | Export-Csv ".\results.csv" -NoTypeInformation -Encoding UTF8
 ###
 
 param (
-    [Parameter(Mandatory)]
-    [string]$RootUserUPN    # Starting root to enumerate users
+    [string]$RootUserUPN="maggie.laird@hitachivantara.com"    # Starting root to enumerate users
 )
 
 Import-Module Microsoft.Graph.Users
@@ -138,7 +139,7 @@ function Get-OrgTree {
 
     # Get user details
     $user = Get-MgUser -UserId $UserId `
-        -Property DisplayName,UserPrincipalName,JobTitle,Department,OfficeLocation,GivenName,EmployeeType,AboutMe,EmployeeHireDate,AccountEnabled, Id, Extensions,OnPremisesExtensionAttributes `
+        -Property DisplayName,UserPrincipalName,JobTitle,Department,OfficeLocation,GivenName,EmployeeType,AboutMe,EmployeeHireDate,AccountEnabled,Id,Extensions,OnPremisesExtensionAttributes `
         -ErrorAction Stop
 	
 	# Get extended properties (employee ID, etc.)
@@ -160,21 +161,27 @@ function Get-OrgTree {
 	
 	# Get EXCHANGE info for this user
 	try {
-		# Get mailbox information
-        $EXuser = Get-User -Identity $User.UserPrincipalName -ErrorAction Stop
-		# Get SMTP email addresses
-		$SMTPDetails = Get-Mailbox $User.UserPrincipalName |
-			Select-Object -ExpandProperty EmailAddresses |
-			Where-Object { $_ -like "smtp:*" } | ForEach-Object { $_.Substring(5) }
+		# Get mailbox information (likely fails)
+#        $EXuser = Get-User -Identity $User.UserPrincipalName -ErrorAction SilentlyContinue
+#		# Get SMTP email addresses
+#		$SMTPDetails = Get-Mailbox $User.UserPrincipalName |
+#			Select-Object -ExpandProperty EmailAddresses |
+#			Where-Object { $_ -like "smtp:*" } | ForEach-Object { $_.Substring(5) }
+	$recipient = $null		
+	$recipient = Get-EXORecipient `
+		get-exorecipient -externalDirectoryObjectId $user.id 
 		# Get distribution groups that the user is a member of... (SLOW)
 		# $DL = Get-Recipient -RecipientTypeDetails MailUniversalDistributionGroup, MailUniversalSecurityGroup, MailNonUniversalGroup |
 		#		Where-Object { (Get-DistributionGroupMember $_.Identity | Where-Object {$_.PrimarySmtpAddress -eq $User.UserPrincipalName}) }
-    }
-    catch {
-        Write-Warning "Error accessing Exchange user: $($User.UserPrincipalName)"
+	$SMTPDetails = $recipient |
+			Select-Object -ExpandProperty EmailAddresses |
+			Where-Object { $_ -like "smtp:*" } | ForEach-Object { $_.Substring(5) } 
+   }
+   catch {
+       Write-Warning "Error accessing Exchange user: $($User.UserPrincipalName)"
 		$EXuser = $null
 		$SMTPDetails = $null
-    }
+   }
 
 
     # Add to results
@@ -193,17 +200,18 @@ function Get-OrgTree {
         Manager     		= $ManagerUPN
         PhotoPath           = $photoPath
 		ObjectId			= $user.Id
- 		ExtensionAttributes = $extensions | ConvertTo-Json
+ 		ExtensionAttributes = "'" + ($extensions | ConvertTo-Json -Depth 5 -Compress) + "'"
+		Alias				= $recipient.Alias
 		EX_SamAccountName	= $EXUser.SamAccountName
 		EX_OrgUnitRoot		= $EXUser.OrganizationalUnitRoot
-		EX_SMTPAddresses	= $SMTPDetails
+		EX_SMTPAddresses	= ($SMTPDetails -join '; ')
    }
 
     # Get direct reports
     $directReports = Get-MgUserDirectReport -UserId $UserId -All
 
     foreach ($dr in $directReports) {
-        # write-host -ForegroundColor Yellow $dr.additionalproperties['displayName'] - $dr.id - $dr.AdditionalProperties.mail   # DEBUG
+        write-host -ForegroundColor Green $dr.additionalproperties['displayName'] - $dr.id - $dr.AdditionalProperties.mail   # DEBUG / PROGRESS
 
         # Graph returns directoryObjects — filter to users only
         # if ($dr.'@odata.type' -eq '#microsoft.graph.user') {
@@ -224,7 +232,7 @@ $root = Get-MgUser -UserId $RootUserUPN -Property Id,UserPrincipalName
 # Start traversal
 Get-OrgTree -UserId $root.Id
 
-# Output as hierarchy
+# Display as hierarchy
 $script:results |
     Sort-Object Level, DisplayName |
     ForEach-Object {
@@ -232,4 +240,5 @@ $script:results |
     }
 
 # Return structured data
-$script:results
+$script:results | Export-Csv ".\results.csv" -NoTypeInformation -Encoding UTF8
+write-host "Exported to .\results.csv"
